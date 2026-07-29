@@ -1,28 +1,24 @@
-import type { JwtPayload, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "@supabase/supabase-js"
 import { useEffect, useState } from "react";
 
+
 export function useUser(supabase: SupabaseClient) {
-  const [claims, setClaims] = useState<JwtPayload | null>(null);
+    const [claims, setClaims] = useState<any>(null);
 
-  useEffect(() => {
-    const loadClaims = () => {
-      supabase.auth.getClaims().then(({ data }) => {
-        setClaims(data?.claims ?? null);
-      });
-    };
+    useEffect(() => {
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange(() => {
+            supabase.auth.getClaims().then(({ data }) => {
+                setClaims(data?.claims || null)
+            }).catch(e => console.log(e));
+        })
 
-    loadClaims();
+        return () => subscription.unsubscribe()
+    }, [supabase])
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      loadClaims();
-    });
+    return {
+        claims
+    }
 
-    return () => subscription.unsubscribe();
-  }, [supabase.auth]);
-
-  return {
-    claims,
-  };
 }
