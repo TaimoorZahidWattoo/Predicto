@@ -2,11 +2,25 @@ import type { NextFunction } from "express";
 import type { Response } from "express";
 import type { Request } from "express";
 import { createClient } from "@supabase/supabase-js";
-import { prisma } from "db";
+import { prisma } from "../../packages/db/index.ts";
 
-const supabase = createClient("https://vqjtztoejtjlavueomdh.supabase.co", process.env.SUPABASE_SECRET_KEY!);
+const supabaseUrl = process.env.SUPABASE_URL ?? "https://vqjtztoejtjlavueomdh.supabase.co";
+
+export function isSupabaseConfigured() {
+    return Boolean(process.env.SUPABASE_SECRET_KEY);
+}
+
+export function getSupabaseClient() {
+    const secretKey = process.env.SUPABASE_SECRET_KEY;
+
+    if (!secretKey) {
+        return null;
+    }
+
+    return createClient(supabaseUrl, secretKey);
+}
+
 export async function middleware(req: Request, res: Response, next: NextFunction) {
-
     console.log("Authorization Header:", req.headers.authorization);
 
     const token = req.headers.authorization;
@@ -18,15 +32,30 @@ export async function middleware(req: Request, res: Response, next: NextFunction
         });
     }
 
+    const supabase = getSupabaseClient();
+
+    if (!supabase) {
+        console.log("Supabase auth is not configured; rejecting protected request.");
+        return res.status(401).json({
+            message: "Authentication unavailable"
+        });
+    }
+
     try {
         const { data: { user }, error } = await supabase.auth.getUser(token);
 
         console.log("User:", user);
         console.log("Error:", error);
 
-        const address: string = user?.user_metadata.custom_claims.address;
+        const address = user?.user_metadata?.custom_claims?.address;
 
-        const userDb =await prisma.user.upsert({
+        if (!address) {
+            return res.status(403).json({
+                message: "Incorrect Credentials"
+            });
+        }
+
+        const userDb = await prisma.user.upsert({
             where: {
                 address,
             },
@@ -39,15 +68,8 @@ export async function middleware(req: Request, res: Response, next: NextFunction
             }
         });
 
-        if (address) {
-            req.userId = userDb.id;
-            next();
-        } else {
-            res.status(403).json({
-                message: "Incorrect Credentials"
-            });
-        }
-
+        (req as Request & { userId?: string }).userId = userDb.id;
+        next();
     } catch (e) {
         console.log(e);
         res.status(403).json({
@@ -55,23 +77,3 @@ export async function middleware(req: Request, res: Response, next: NextFunction
         });
     }
 }
-// export async function middleware(req: Request, res: Response, next: NextFunction) {
-//     const token = req.headers.authorization;
-// try {
-//     const { data: { user } , error } = await supabase.auth.getUser(token);
-//     const address = user?.user_metadata.custom_claims.address;
-//     if(address){
-//         req.userId = address;
-//         next();
-//     } else {
-//         res.status(403).json({ message: "Incorrect Credentials" });
-
-//     }
-//     console.log(user);
-//     console.log(error);
-    
-// } catch (e) {
-//     res.status(403).json({ message: "Incorrect Credentials" });
-// }
-    
-// }

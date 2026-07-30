@@ -2,7 +2,7 @@ import express, { response } from "express";
 import cors from "cors";
 import { uuid } from "uuidv4";
 import { middleware } from "./middleware";
-import { prisma } from "db";
+import { prisma } from "../../packages/db/index.ts";
 import { CreateOrderSchema, type Orderbook } from "./types";
 import { SplitSchema } from "./types";
 
@@ -889,4 +889,21 @@ app.get("/history",middleware , async (req, res) => {
 })
 
  
-app.listen(3000); 
+app.get("/markets", async (req, res) => {
+    try {
+        const markets = await prisma.market.findMany({
+            orderBy: {
+                title: "asc",
+            },
+        });
+
+        res.json(markets);
+    } catch (err) {
+        console.error("Markets endpoint error:", err);
+        res.status(500).json({ message: "Failed to fetch markets" });
+    }
+});
+
+app.listen(3000, () => {
+    console.log("🚀 Backend is listening on http://localhost:3000");
+});

@@ -19,8 +19,8 @@ declare global {
 
 function App() {
   const [supabase] = useState(createClient(
-    "https://sgvenstbkiedwlmctkym.supabase.co",
-    "sb_publishable_UzrNN841hMRh49RkCtCvbA_5ayRmeRN"
+    "https://vqjtztoejtjlavueomdh.supabase.co",
+     "sb_publishable_ai5jq9C3TakVyJ3awa__Gg_j2V7cNtS"
   ));
   return <AppWrapper supabase={supabase} />;
 }
@@ -50,14 +50,20 @@ function AppWrapper({ supabase }: { supabase: SupabaseClient }) {
   const fetchMarkets = async () => {
     try {
       const response = await fetch("http://localhost:3000/markets");
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
       const data = await response.json();
-      const nextMarkets = data.markets || [];
+      const nextMarkets = Array.isArray(data) ? data : data.markets || [];
+
       setMarkets(nextMarkets);
       setSelectedMarket((current) => (
         current ? nextMarkets.find((market: Market) => market.id === current.id) || current : current
       ));
     } catch (err) {
       console.error("Failed to fetch markets:", err);
+      setMarkets([]);
     }
   };
 
